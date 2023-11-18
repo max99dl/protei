@@ -1,0 +1,48 @@
+##################
+Start: 2023-Nov-18 18:32:20.934050
+Call ID: ID##0
+Client number: 
+Finish: 2023-Nov-18 18:32:20.934210
+Operator response: 
+Conversation duration: 0
+##################
+##################
+Start: 2023-Nov-18 18:32:20.934050
+Call ID: ID##0
+Client number: 
+Finish: 2023-Nov-18 18:32:20.934679
+Operator response: 
+Conversation duration: 0
+##################
+##################
+Start: 2023-Nov-18 18:32:20.934050
+Call ID: ID##0
+Client number: 
+Finish: 2023-Nov-18 18:32:20.934831
+Operator response: 
+Conversation duration: 0
+##################
+##################
+Start: 2023-Nov-18 18:32:20.934050
+Call ID: ID##0
+Client number: 
+Finish: 2023-Nov-18 18:32:20.934967
+Operator response: 
+Conversation duration: 0
+##################
+##################
+Start: 2023-Nov-18 18:32:20.934050
+Call ID: ID##0
+Client number: 
+Finish: 2023-Nov-18 18:32:20.935098
+Operator response: 
+Conversation duration: 0
+##################
+##################
+Start: 2023-Nov-18 18:32:20.934050
+Call ID: ID##0
+Client number: hi
+Finish: 2023-Nov-18 18:32:31.912081
+Operator response: 2023-Nov-18 18:32:23.911325
+Conversation duration: 8
+##################

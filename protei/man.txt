@@ -1,0 +1,14 @@
+frequency range of mobile network : 400 MHz : 52 GHz (in license)
+speed: up to 20 Gbit/s
+speed of 4G: up to 1 Gbit/s
+
+Downlink DL
+Uplink UL
+Multiple Access MA
+Public Land Mobile Network PLMN - mobile user id
+ PLMN include:
+MCC - Mobile Country Code
+MNC - Mobile Network Code
+MSIN - Mobile Subscriber ID Number
+///
+SIM (Subscriber Identity Module)
