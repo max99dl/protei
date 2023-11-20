@@ -5,6 +5,7 @@
 #include<boost/date_time/posix_time/posix_time.hpp>
 #include<iostream>
 #include<vector>
+#include<memory>
 #include<chrono>
 #include<utility>//for std::pair<>
 #include<algorithm>
@@ -17,6 +18,8 @@
 
 #define SEPARATOR "##################"
 #define OUTPUT_FILE "clients_information.txt"
+#define BUSY false
+#define FREE true
 
 
 using tcp = boost::asio::ip::tcp;
@@ -33,19 +36,19 @@ void inform_for_overload();//+
 ///////////////////////////////////////////////////////////////////////////////CLIENT
 class Client {
 public:
-	Client();
+	Client(tcp::socket connection_socket_);
 	~Client();
 	std::string get_id() const;//+
 	void set_number(std::string number);//+
 	std::string get_number() const;//+
 	void set_operator_time();//+
 	void set_talk_duration(size_t talk_duration);
-	//void set_connection_socket(tcp::socket connection_socket_);//+
-	//tcp::socket get_connection_socket();//+
+	//void set_socket_connection(tcp::socket connection_socket_);//+
+	tcp::socket get_socket_connection();//+
 	inline static size_t number_id = 0;//+
 private:
 	size_t talk_duration_s = 0;
-	//tcp::socket connection_socket;//+
+	tcp::socket connection_socket;//+
 	std::string unique_id;//+
 	std::string phone_number;//+
 	//information data-time
@@ -66,20 +69,22 @@ public:
 					 std::pair<size_t, size_t> min_max_time);//+
 
 
+  void add_client(const std::string client_ID);
+  void remove_client_from_waiting_queue();
 	size_t clients_is_waiting_count() const;//+
+	bool check_waiting_count() const;
 	//then create a client we should add him in waiting queue
-	void add_waiting_client(Client client);//+
+	void add_waiting_client(std::string client_ID);//+
 	//count of available operators
 	size_t count_of_free_operators() const;//+
-	bool check_waiting_count() const;//+
-	void update_queues(tcp::socket& socket);//+
-	std::pair<size_t, size_t> get_min_max_time_range() const;
-	void find_and_remove_client(std::string client_ID);
+	std::pair<size_t, size_t> get_min_max_time_range() const;//+
+	void find_and_remove_client(const std::string client_ID);//+
+	size_t find_client_position(const std::string client_ID);
+	void process_client(std::shared_ptr<Client> client);
 private:
-	//current_working_clients, we make it mutable to be able change in const method update_operators()
 	std::vector<std::string> operators;//+
 	//clients in waiting queue
-	std::vector<Client> clients_is_waiting;//+
+	std::vector<std::string> clients_is_waiting;//+
 	const size_t operators_size;//+
 	const size_t max_waiting_size;//+
 	const std::pair<size_t, size_t> min_max_time_range;
@@ -106,6 +111,7 @@ private:
 
 
 ////////////////////////////////////////////////////////////////////FILE
+
 class File {
 public:
 	File(const std::string file_name_);//+
@@ -119,6 +125,11 @@ private:
 
 
 
-void set_client_stream(Client client, Operator& operators, tcp::socket& socket);//+
-//void work(tcp::socket connection_socket, )
+void set_client_stream(std::shared_ptr<Client> client, Operator& operators);//+
 
+void set_client_waiting_stream(std::shared_ptr<Client> client, Operator& operators);
+
+void send_message_to_client(beast::websocket::stream<tcp::socket>& ws,
+														const std::string& message);
+
+std::string receive_message_from_client(beast::websocket::stream<tcp::socket>& ws);

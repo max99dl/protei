@@ -37,17 +37,12 @@ void Server::start() {//+
 			file.print_information("overload");
 			continue;
 		}
-		Client client;
-		//connecting client
-		//client.set_connection_socket(std::move(socket));
-		//add client to waiting queue
-		operators.add_waiting_client(std::move(client));
-		operators.update_queues(socket);
-		//notify which in waiting queue-----------------------------------------------------------??
-		//our client is in the client_is_waiting.top()
-		//if(waiting_queue_is_not_empty) then 
-		//operators.information_for_waiting_clients();
-	
+		
+		
+		auto client = std::make_shared<Client>(std::move(socket));
+		//client->set_socket_connection(std::move(socket));
+		
+		operators.process_client(client);
 	}
 }
 
@@ -68,7 +63,7 @@ std::pair<size_t, size_t> Operator::get_min_max_time_range() const {//+
 	return min_max_time_range;
 }
 
-void Operator::find_and_remove_client(std::string client_ID) {//+
+void Operator::find_and_remove_client(const std::string client_ID) {//+
 	auto client_position =
 			std::find(operators.begin(), operators.end(), client_ID);
 	if(client_position != operators.end()) {
@@ -76,6 +71,30 @@ void Operator::find_and_remove_client(std::string client_ID) {//+
 		} else {
 			//error log that some problems
 		}
+}
+
+size_t Operator::find_client_position(const std::string client_ID) {
+	auto client_position =
+		std::find(clients_is_waiting.begin(),
+							clients_is_waiting.end(), client_ID);
+	if(client_position != clients_is_waiting.end()) {
+		return client_position - clients_is_waiting.begin() + 1;
+		} else {
+			//error log that some problems----------------------------------------------------??
+			return 0;
+		}
+}
+
+void Operator::add_client(const std::string client_ID) {
+	operators.push_back(client_ID);
+}
+
+void Operator::remove_client_from_waiting_queue() {
+	if(clients_is_waiting.empty()) {
+		//log for error-----------------------------------------------------??
+	} else {
+		clients_is_waiting.erase(clients_is_waiting.begin());
+	}
 }
 
 size_t Operator::count_of_free_operators() const {//+
@@ -88,27 +107,24 @@ size_t Operator::clients_is_waiting_count() const {//+
 	return clients_is_waiting.size();
 }
 
-//need to pass a client by std::move()
-void Operator::add_waiting_client(Client client) {//+
-	clients_is_waiting.push_back(std::move(client));
-}
-
-
-
-bool Operator::check_waiting_count() const {//+
+bool Operator::check_waiting_count() const {
 	return clients_is_waiting.size() < max_waiting_size;
 }
+	
+//need to pass a client by std::move()
+void Operator::add_waiting_client(std::string client_ID) {//+
+	clients_is_waiting.push_back(client_ID);
+}
 
-
-void Operator::update_queues(tcp::socket& socket) {//+
-	size_t check = std::min(count_of_free_operators(), clients_is_waiting_count());
-	for(size_t i = 0; i < check; ++i) {
-		//add CLient ID to operators queue
-		operators.push_back(clients_is_waiting[0].get_id());
-		//connect client with operator and sleep
-		set_client_stream(std::move(clients_is_waiting[0]), *this, socket);
-		//delete client from waiting queue
-		clients_is_waiting.erase(clients_is_waiting.begin());
+void Operator::process_client(std::shared_ptr<Client> client) {
+	if((operators.size() < operators_size) && clients_is_waiting.empty()) {
+		//we can now connect client with free operator
+		operators.push_back(client->get_id());
+		set_client_stream(client, *this);
+	} else {
+		//we need to add client in waiting queue
+		clients_is_waiting.push_back(client->get_id());
+		set_client_waiting_stream(client, *this);
 	}
 }
 
@@ -116,31 +132,12 @@ void Operator::update_queues(tcp::socket& socket) {//+
 
 
 
-
 /////////////////////////////////////////////////////////////////////////////////////////CLIENT
-Client::Client()
+Client::Client(tcp::socket connection_socket_) : connection_socket(std::move(connection_socket_))
 {
 	client_start_time = get_current_time();
 	unique_id = "ID##"+std::to_string(Client::number_id++);
 }
-/*
-Client::Client(Client&& other) {
-	this->talk_duration_s = other.talk_duration_s;
-	this->connection_socket = std::move(other.connection_socket);
-	this->unique_id = other.unique_id;
-	this->phone_number = other.phone_number;
-	this->client_start_time = other.client_start_time;
-	this->operator_start_time = other.operator_start_time;
-
-	other.talk_duration_s = 0;
-	other.unique_id.clear();
-	other.phone_number.clear();
-	other.client_start_time.clear();
-	other.operator_start_time.clear();
-}*/
-
-
-
 
 Client::~Client() {
   //need to log client information
@@ -158,9 +155,7 @@ Client::~Client() {
 				<< SEPARATOR << std::endl;		
 }
 
-
 void Client::set_operator_time() {//+
-	std::cout << "i am in set_operator_time" << std::endl;
 	operator_start_time = get_current_time();
 }
 
@@ -180,17 +175,17 @@ void Client::set_talk_duration(size_t talk_duration) {
 	talk_duration_s = talk_duration;
 }
 /*
-void Clients::set_connection_socket(tcp::socket connection_socket_) {//+
+void Client::set_socket_connection(tcp::socket connection_socket_) {//+
 	connection_socket = std::move(connection_socket_);
-}
+}*/
 
-tcp::socket Clients::get_connection_socket() {//+
+tcp::socket Client::get_socket_connection() {//+
 	return std::move(connection_socket);
 }
-*/
 
 
-/////////////////////////////////////////////////////////////////FILE
+
+////////////////////////////////////////////////////////////////////////////////////////FILE
 File::File(const std::string file_name_)
 	: file_name(file_name_),
 	  file_descriptor(file_name, std::ios::app)//+
@@ -218,8 +213,6 @@ File::~File() {
 
 
 
-
-
 std::string get_current_time() {//+
 	return to_simple_string(Time::microsec_clock::universal_time());
 }
@@ -243,8 +236,9 @@ size_t speech_imitation(std::pair<size_t, size_t> min_max_time_range) {//+
 
 
 
-void set_client_stream(Client cl, Operator& operators, tcp::socket& socket) {
-	std::thread{ [client = std::move(cl), &operators, &socket] () mutable {
+//the last argement needs to clarify client is in waiting queue or not
+void set_client_stream(std::shared_ptr<Client> client, Operator& operators) {
+	std::thread{ [client, &operators, socket = std::move(client->get_socket_connection())] () mutable {
 			beast::websocket::stream<tcp::socket> ws {
 					std::move(socket)};
 	
@@ -258,28 +252,94 @@ void set_client_stream(Client cl, Operator& operators, tcp::socket& socket) {
 			ws.accept();
 
 			try {
-				//buffer for incoming message
-				beast::flat_buffer buffer;
-				//read ans set Client number
-				ws.read(buffer);
-				client.set_number(std::move(beast::buffers_to_string(buffer.cdata())));
-				std::cout << client.get_number() << std::endl;
-				//clear the buffer
-				//buffer.clear();
+				client->set_number(std::move(receive_message_from_client(ws)));
+				std::cout << client->get_number() << std::endl;
 				//write data
-				const std::string message_to_client = "Your id: " + client.get_id();
-				//ws.write(message_to_client);
+				const std::string message_to_client = "Your id: " + client->get_id();
+				send_message_to_client(ws, message_to_client);
 				//set time operator response
-				client.set_operator_time();
+				client->set_operator_time();
 				//make client sleep for n seconds
-				client.set_talk_duration(
+				client->set_talk_duration(
 					speech_imitation(operators.get_min_max_time_range())
 				);
 				//after sleep we need to remove client from operators queue
-				operators.find_and_remove_client(client.get_id());
-				//update waiting_clients_and_operators_queue
-				operators.update_queues(socket);
-				//operators.information_for_waiting_clients();
+				operators.find_and_remove_client(client->get_id());
+
+			} catch(const beast::system_error& se) {
+				if(se.code() != beast::websocket::error::closed) {
+					//log for error-------------------------------------------------------??
+					std::cout << se.code().message() << std::endl;
+				}
+			}
+
+	}}.detach();
+}
+
+
+
+void set_client_waiting_stream(std::shared_ptr<Client> client, Operator& operators) {
+	std::thread{ [client, &operators, socket = std::move(client->get_socket_connection())] () mutable {
+			beast::websocket::stream<tcp::socket> ws {
+					std::move(socket)};
+	
+			//set 
+			ws.set_option(beast::websocket::stream_base::decorator (
+				[](beast::websocket::response_type& res) {
+				res.set(beast::http::field::server, "operators");
+			}));
+				
+			//connect with client
+			ws.accept();
+
+			try {
+				//write client phone number
+				client->set_number(std::move(receive_message_from_client(ws)));
+				std::cout << client->get_number() << std::endl;
+
+				//send message to client which in wiating_queue
+				size_t order_in_waiting_queue = operators.clients_is_waiting_count();
+				std::string message_to_client =
+						"You are " +
+						std::to_string(order_in_waiting_queue) +
+						" in waiting queue";
+				send_message_to_client(ws, message_to_client);
+				
+				
+				//being in waiting queue while there are no free operators
+				while(1) {
+					//client position in waiting queue
+					size_t client_position = operators.find_client_position(client->get_id());
+					if((operators.count_of_free_operators()) && client_position == 1) {
+						//there are free operator and client in waiting queue is first
+						operators.add_client(client->get_id());
+						operators.remove_client_from_waiting_queue();
+						break;
+					}
+					if(client_position != order_in_waiting_queue) {
+						order_in_waiting_queue = client_position;
+						message_to_client =
+								"You are " +
+								std::to_string(order_in_waiting_queue) +
+								" in waiting queue";
+						send_message_to_client(ws, message_to_client);
+					}
+					//if there are no free operators, keep stay in waiting queue
+					sleep(1);
+				}
+				
+				//now we ready to work with operator
+				//send client ID
+				message_to_client = "Your id: " + client->get_id();
+				send_message_to_client(ws, message_to_client);
+				//set time operator response
+				client->set_operator_time();
+				//make client sleep for n seconds
+				client->set_talk_duration(
+					speech_imitation(operators.get_min_max_time_range())
+				);
+				//after sleep we need to remove client from operators queue
+				operators.find_and_remove_client(client->get_id());
 					
 			} catch(const beast::system_error& se) {
 				if(se.code() != beast::websocket::error::closed) {
@@ -293,3 +353,19 @@ void set_client_stream(Client cl, Operator& operators, tcp::socket& socket) {
 
 
 
+
+void send_message_to_client(beast::websocket::stream<tcp::socket>& ws,
+														const std::string& message) {
+	//buffer for message
+	beast::flat_buffer buffer;
+	boost::beast::ostream(buffer) << message << std::endl;
+	ws.write(buffer.data());
+}
+
+
+std::string receive_message_from_client(beast::websocket::stream<tcp::socket>& ws) {
+	//buffer for incoming message
+	beast::flat_buffer buffer;
+	ws.read(buffer);
+	return beast::buffers_to_string(buffer.cdata());
+}

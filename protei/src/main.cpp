@@ -11,15 +11,14 @@ int main() {
 		//log for warning--------------------------------------------------??
 		concurrency = 2;
 	}
-	std::cout << concurrency << std::endl;
 	
 	//next we need to parse json file config----------------------------??
 	
-	const size_t max_operators_count = 3;
-	const size_t max_waiting_count = 3;
+	const size_t max_operators_count = 2;
+	const size_t max_waiting_count = 2;
 	size_t io_context_hint = 1;
-	size_t min_time_speech = 5;
-	size_t max_time_speech = 10;
+	size_t min_time_speech = 20;
+	size_t max_time_speech = 30;
 	auto min_max_time_range = std::make_pair(min_time_speech, max_time_speech);
 	
 //log for create and set up server-----------------------------------??
