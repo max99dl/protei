@@ -1,3 +1,0 @@
-/home/maxim/protei/spdlog/build/CMakeFiles/main.dir
-/home/maxim/protei/spdlog/build/CMakeFiles/edit_cache.dir
-/home/maxim/protei/spdlog/build/CMakeFiles/rebuild_cache.dir

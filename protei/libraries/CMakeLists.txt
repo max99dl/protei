@@ -10,6 +10,22 @@ set_target_properties(
 	CXX_STANDARD_REQUIRED ON 
 )
 
+target_compile_options(
+	web_server_lib PRIVATE
+#	-I"src/spdlog/include"
+	-Wall
+)
+
+target_include_directories(
+	web_server_lib
+	PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/spdlog/include
+)
+target_include_directories(
+	web_server_lib
+	PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/boost
+)
 
 install(
 	TARGETS web_server_lib EXPORT web_server_libTargets

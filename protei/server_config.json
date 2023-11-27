@@ -1,0 +1,12 @@
+{"Server": {
+		"client_time_waiting_in_queue": {
+				"min": 10,
+				"max": 12
+		},
+		"client_time_work_with_operator": {
+				"min": 20,
+				"max": 30
+		},
+		"waiting_queue_size": 2,
+		"count_of_operators": 1
+}}

@@ -51,11 +51,17 @@ void Server::start() {
 		auto client = std::make_shared<Client>(std::move(socket));
 		std::string message = "request from client " + client->get_id();
 		my_logger.log_information(MyLogger::Status::INFO, message);
-		operators.process_client(client);
+		
+		//try work with client
+		try {
+			operators.process_client(client);
+		} catch(std::runtime_error& re) {
+			my_logger.log_information(MyLogger::Status::ERROR, re.what());
+		}
 	}
 }
 
-//////////////////////////////////////////////////////////////////OPERATORS////
+/////////////////////////////////////////////////////////////////////////OPERATORS
 Operator::Operator(size_t size, size_t waiting_size,
 									 std::pair<size_t, size_t> client_talking_min_max_time_range_,
 									 std::pair<size_t, size_t> client_waiting_min_max_time_range_)
@@ -65,16 +71,19 @@ Operator::Operator(size_t size, size_t waiting_size,
 		client_waiting_min_max_time_range(client_waiting_min_max_time_range_)
 {
 	operators.reserve(operators_size);
-	clients_is_waiting.reserve(max_waiting_size);
 }
 
-void Operator::find_and_remove_client(const std::string client_ID) {//+
+void Operator::find_and_remove_client(const std::string client_ID) {
+	std::lock_guard g(mutex);
 	auto client_position =
 			std::find(operators.begin(), operators.end(), client_ID);
 	if(client_position != operators.end()) {
-		operators.erase(client_position);
+		*client_position = std::move(operators.back());
+		operators.pop_back();
 		} else {
-			//error log that some problems
+			const std::string message =
+				"can't find client " + client_ID + " which must be in operator's queue";
+			throw std::runtime_error(message);
 		}
 }
 
@@ -88,7 +97,7 @@ size_t Operator::find_client_position(const std::string client_id) {
 			const std::string message = "coudn't find client " +
 																	client_id +
 																	" in waiting queue, which must be there";
-			my_logger.log_information(MyLogger::Status::ERROR, message);
+			throw std::runtime_error(message);
 			return 0;
 		}
 }
@@ -97,11 +106,12 @@ void Operator::add_client(const std::string& client_ID) {
 	operators.push_back(client_ID);
 }
 
-size_t Operator::count_of_free_operators() const {//+
+size_t Operator::count_of_free_operators() const {
 	return operators_size - operators.size();
 }
 
 void Operator::remove_client_from_waiting_queue(const std::string& client_id) {
+	std::lock_guard g(mutex);
 	auto client_position =
 		std::find(clients_is_waiting.begin(), clients_is_waiting.end(), client_id);
 		if(client_position != clients_is_waiting.end()) {
@@ -110,21 +120,23 @@ void Operator::remove_client_from_waiting_queue(const std::string& client_id) {
 			const std::string message = "coudn't find client " +
 																	client_id +
 																	" in waiting queue, which must be there";
-			my_logger.log_information(MyLogger::Status::ERROR, message);
+			throw std::runtime_error(message);
 		}
 }
 
 void Operator::remove_client_phone_number(const std::string& client_number) {
+	std::lock_guard g(mutex);
 	auto number_position = std::find(clients_phone_numbers.begin(), 
 																	 clients_phone_numbers.end(),
 																	 client_number);
 	if(number_position != clients_phone_numbers.end()) {
-		clients_phone_numbers.erase(number_position);
+		*number_position = std::move(clients_phone_numbers.back());
+		clients_phone_numbers.pop_back();
 	} else {
 		const std::string message = "coudn't find client number " +
 																client_number +
 																" in storage, which must be there";
-		my_logger.log_information(MyLogger::Status::ERROR, message);
+		throw std::runtime_error(message);
 	}	
 }
 
@@ -133,7 +145,7 @@ void Operator::set_client_phone_number(const std::string& client_number) {
 }
 
 
-size_t Operator::clients_is_waiting_count() const {//+
+size_t Operator::clients_is_waiting_count() const {
 	return clients_is_waiting.size();
 }
 
@@ -170,9 +182,6 @@ void Operator::process_client(std::shared_ptr<Client> client) {
 }
 
 
-
-
-
 /////////////////////////////////////////////////////////////////////////////////////////CLIENT
 Client::Client(tcp::socket connection_socket_)
 	: connection_socket(std::move(connection_socket_))
@@ -183,6 +192,7 @@ Client::Client(tcp::socket connection_socket_)
 
 Client::~Client() {
 	if(flag) {
+		std::lock_guard g(mutex);
   	//need to log client information
 		std::string client_finish_time = get_current_time();
 		File file(OUTPUT_FILE);
@@ -199,19 +209,19 @@ Client::~Client() {
 	}
 }
 
-void Client::set_operator_time() {//+
+void Client::set_operator_time() {
 	operator_start_time = get_current_time();
 }
 
-std::string Client::get_number() const {//+
+std::string Client::get_number() const {
 	return phone_number;
 }
 	
-void Client::set_number(std::string number) {//+
+void Client::set_number(std::string number) {
 	phone_number = number;
 }
 
-std::string Client::get_id() const {//+
+std::string Client::get_id() const {
 	return unique_id;
 }
 
@@ -219,7 +229,7 @@ void Client::set_talk_duration(size_t talk_duration) {
 	talk_duration_s = talk_duration;
 }
 
-tcp::socket Client::get_socket_connection() {//+
+tcp::socket Client::get_socket_connection() {
 	return std::move(connection_socket);
 }
 
@@ -230,16 +240,16 @@ void Client::set_flag_to_false() {
 ////////////////////////////////////////////////////////////////////////////////////////FILE
 File::File(const std::string file_name_)
 	: file_name(file_name_),
-	  file_descriptor(file_name, std::ios::app)//+
+	  file_descriptor(file_name, std::ios::app)
 {
 	std::string message = "open file " + file_name;
-	my_logger.log_information(MyLogger::Status::INFO, message);
+	my_logger.log_information(MyLogger::Status::DEBUG, message);
 	
 	if(!file_descriptor) {
 		message = "can't open file " +
 							file_name +
 							" to write information";
-		my_logger.log_information(MyLogger::Status::ERROR, message);
+		throw std::runtime_error(message);
 	}
 }
 
@@ -247,22 +257,20 @@ std::fstream& File::get_file_descriptor() {
 	return file_descriptor;
 }
 
-void File::print_information(const std::string& message) {//+
+void File::print_information(const std::string& message) {
 	file_descriptor << SEPARATOR << std::endl
 									<< message << std::endl
 									<< SEPARATOR << std::endl;
 }
 
-
 File::~File() {
 	file_descriptor.close();
 	const std::string message = "close file " + file_name;
-		my_logger.log_information(MyLogger::Status::INFO, message);
+		my_logger.log_information(MyLogger::Status::DEBUG, message);
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////////////////////FUNCTIONS
-std::string get_current_time() {//+
+std::string get_current_time() {
 	return to_simple_string(Time::microsec_clock::universal_time());
 }
 
@@ -273,10 +281,9 @@ size_t get_random_time_in_range(const std::pair<size_t, size_t>& min_max_range) 
 	return busy_time;
 }
 
-size_t speech_imitation(std::pair<size_t, size_t> min_max_time_range) {//+
+size_t speech_imitation(std::pair<size_t, size_t> min_max_time_range) {
 	//create speech_duration
 	size_t busy_time = get_random_time_in_range(min_max_time_range);
-	std::cout << "i am in speech_imitation " << busy_time << "s" << std::endl;
 	size_t actual_time_duration = 0;	
 	for(size_t i = 0; i < busy_time; ++i) {
 		sleep(1);
@@ -294,7 +301,6 @@ size_t speech_imitation(std::pair<size_t, size_t> min_max_time_range) {//+
 
 
 
-//the last argement needs to clarify client is in waiting queue or not
 void set_client_stream(std::shared_ptr<Client> client, Operator& operators) {
 	std::thread{ [client, &operators, socket = std::move(client->get_socket_connection())] () mutable {
 			beast::websocket::stream<tcp::socket> ws {
@@ -322,7 +328,7 @@ void set_client_stream(std::shared_ptr<Client> client, Operator& operators) {
 					my_logger.log_information(MyLogger::Status::WARN, message);
 					//number already exist, so should close the connection
 					//can leave the thread
-					return;//-------------------------------------------------------------------??
+					return;
 				}
 				
 				//next we can connect client with free operator
@@ -346,6 +352,7 @@ void set_client_stream(std::shared_ptr<Client> client, Operator& operators) {
 				//after sleep we need to remove client from operators queue
 				operators.find_and_remove_client(client->get_id());
 				operators.remove_client_phone_number(client->get_number());
+				send_message_to_client(ws, "good bye...");
 
 			} catch(const beast::system_error& se) {
 				if(se.code() != beast::websocket::error::closed) {
@@ -388,7 +395,7 @@ void set_client_waiting_stream(std::shared_ptr<Client> client, Operator& operato
 							"request from client with phone number which already is processing";
 					my_logger.log_information(MyLogger::Status::WARN, message);
 					//can leave the thread
-					return;//-------------------------------------------------------------------??
+					return;
 				}
 				
 				//now we can prepare client to add in waiting queue
@@ -413,7 +420,6 @@ void set_client_waiting_stream(std::shared_ptr<Client> client, Operator& operato
 				
 				
 				//being in waiting queue while there are no free operators
-				
 				while(1) {
 					//client position in waiting queue
 					size_t client_position = operators.find_client_position(client->get_id());
@@ -444,8 +450,9 @@ void set_client_waiting_stream(std::shared_ptr<Client> client, Operator& operato
 								" close connection because waiting time has been exceed";
 						my_logger.log_information(MyLogger::Status::WARN, message);
 						client->set_flag_to_false();
+						send_message_to_client(ws, "good bye...");
 						//can leave the thread
-						return;//------------------------------------------------------------??
+						return;
 					}
 					//if there are no free operators, keep stay in waiting queue
 					sleep(1);
@@ -464,6 +471,7 @@ void set_client_waiting_stream(std::shared_ptr<Client> client, Operator& operato
 				//after sleep we need to remove client from operators queue
 				operators.find_and_remove_client(client->get_id());
 				operators.remove_client_phone_number(client->get_number());
+				send_message_to_client(ws, "good bye...");
 				
 					
 			} catch(const beast::system_error& se) {
@@ -512,7 +520,7 @@ std::tuple<std::pair<size_t, size_t>,
   auto talk_max = rootHive.get<size_t>("Server.client_time_work_with_operator.max", 0);
   auto waiting_queue = rootHive.get<size_t>("Server.waiting_queue_size", 0);
   auto operators_count = rootHive.get<size_t>("Server.count_of_operators", 0);
-  //check for input
+  //check for correct input
   if( (waiting_max < waiting_min) || (talk_max < talk_min)) {
   	my_logger.log_information(MyLogger::Status::CRITICAL, "invalid arguments in config file");
   	//can break the program
