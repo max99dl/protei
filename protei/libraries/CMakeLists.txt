@@ -12,7 +12,6 @@ set_target_properties(
 
 target_compile_options(
 	web_server_lib PRIVATE
-#	-I"src/spdlog/include"
 	-Wall
 )
 
@@ -20,10 +19,6 @@ target_include_directories(
 	web_server_lib
 	PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/spdlog/include
-)
-target_include_directories(
-	web_server_lib
-	PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/boost
 )
 
