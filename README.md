@@ -2,6 +2,8 @@
 project task in c++
 
 REQUIRED: cmake version(at least 3.15), c++ standart(at least c++17)
+!!!this project consist submodule (spdlog), so when you clone this repository you should update submodule (git submodule update --init)
+or you have to set up submodule flag before cloning (git config submodule.recurse true)
 
 how to assemble project:
 1) enter in protei directory
