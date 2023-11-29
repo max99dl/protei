@@ -21,12 +21,12 @@ set_target_properties(
 
 target_compile_options(
 	main PRIVATE
-	-Wall
+	-Wall -pthread
 )
 
 target_compile_options(
 	tests PRIVATE
-	-Wall
+	-Wall -pthread
 )
 
 target_include_directories(
